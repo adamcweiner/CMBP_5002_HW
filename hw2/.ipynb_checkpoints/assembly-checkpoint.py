@@ -85,13 +85,18 @@ def simple_de_bruijn(sequence_reads, k):
 
 
 def build_edges(db_graph):
-    """ Build a dict of dict of Counters where the counter is the edge and the coverage between the two nodes. For example {A: {B: Counter({AB_edge: AB_coverage})}}. """
-    db_edges = {}
+    """ Build a dict of dict of Counters where the counter is the edge and the coverage between the two nodes. For example {A: {B: [AB_edge, AB_coverage]}}. """
+    db_edges = defaultdict()
     for A in db_graph:
+        i = 0
         for B in db_graph[A]:
             AB_edge = merge_strings(A, B)
             AB_coverage = db_graph[A][B]
-            db_edges[A] = {B: Counter({AB_edge: AB_coverage})}
+            if i == 0:
+                db_edges[A] = {B: [AB_edge, AB_coverage]}
+            else:
+                db_edges[A].update({B: [AB_edge, AB_coverage]})
+            i += 1
         #print("db_edges[A]:", db_edges[A])
     return db_edges
 
