@@ -84,6 +84,18 @@ def simple_de_bruijn(sequence_reads, k):
     return de_bruijn_graph
 
 
+def build_edges(db_graph):
+    """ Build a dict of dict of Counters where the counter is the edge and the coverage between the two nodes. For example {A: {B: Counter({AB_edge: AB_coverage})}}. """
+    db_edges = {}
+    for A in db_graph:
+        for B in db_graph[A]:
+            AB_edge = merge_strings(A, B)
+            AB_coverage = db_graph[A][B]
+            db_edges[A] = {B: Counter({AB_edge: AB_coverage})}
+        #print("db_edges[A]:", db_edges[A])
+    return db_edges
+
+
 def condense_db_graph(db_graph):
     """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge """
     found_match = False
@@ -189,7 +201,7 @@ def plot_db_graph(db_graph):
     A = pgv.AGraph()
     for key in db_graph:
         for cntr in db_graph[key]:
-            A.add_edge(key, cntr, label=db_graph[key][cntr])
+            A.add_edge(key, cntr, label=("cov = " + str(round(db_graph[key][cntr], 3)) + ", len = " + str(len(merge_strings(key, cntr)))))
     A.node_attr.update(label=0, fontsize=0)
     A.write("test.dot")  # use "dot -Tpng test.dot > test.png" to convert to png
     #A.draw('test.png')
@@ -204,7 +216,8 @@ if __name__ == "__main__":
     reads_fn = "s_6.first1000.fastq"
     reads = read_assembly_reads(reads_fn)
     db_graph = simple_de_bruijn(reads, 55)
-    condense_db_graph(db_graph)
+    db_edges = build_edges(db_graph)
+    #condense_db_graph(db_graph)
     plot_db_graph(db_graph)
 
     #output_fn = "fastq_reads.txt"
