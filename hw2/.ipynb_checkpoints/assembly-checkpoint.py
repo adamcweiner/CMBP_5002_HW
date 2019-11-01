@@ -101,6 +101,30 @@ def build_edges(db_graph):
     return db_edges
 
 
+def condense_edges(db_graph, db_edges):
+    """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge. """
+    for X in db_graph:
+        found_match = False
+        for Y in db_graph[X]:
+            [XY_edge, XY_cov] = db_edges[X][Y]
+            if Y not in db_graph:
+                pass
+            elif (len(db_graph[Y]) == 1):
+                for Z in db_graph[Y]:
+                    [YZ_edge, YZ_cov] = db_edges[Y][Z]
+                    collapse_node(db_graph, db_edges, X, Y, Z)
+
+
+def collapse_node(db_graph, db_edges, X, Y, Z)
+    """ Given a linear region of the graph where X --XY--> Y --YZ--> Z we collapse the Y node to get X --XYZ--> Z. """
+    # find strings and coverages for original edges
+    [XY_edge, XY_cov] = db_edges[X][Y]
+    [YZ_edge, YZ_cov] = db_edges[Y][Z]
+
+    XYZ_edge = merge_strings(XY_edge, YZ_edge)
+    XYZ_cov = (XY_cov*len(XY_edge) + YZ_cov*len(YZ_edge)) / (len(XY_edge) + len(YZ_edge))
+
+
 def condense_db_graph(db_graph):
     """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge """
     found_match = False
@@ -124,7 +148,7 @@ def condense_db_graph(db_graph):
                             Z = grandchild
                             print("Z:", Z)
                             YZ_cov = db_graph[child][grandchild]
-                            collapse_node(db_graph, X, Y, Z, XY_cov, YZ_cov)  # collapse the linear region
+                            collapse_node_og(db_graph, X, Y, Z, XY_cov, YZ_cov)  # collapse the linear region
                             print("collapsed node")
                             found_match = True
                             repeat = True # loop through entire graph again since we changed its size
@@ -136,7 +160,7 @@ def condense_db_graph(db_graph):
     return
 
 
-def collapse_node(db_graph, X, Y, Z, XY_cov, YZ_cov):
+def collapse_node_og(db_graph, X, Y, Z, XY_cov, YZ_cov):
     """ Given a linear region of the graph where X --> Y --> Z we collapse the Y node to get XY --> YZ. """
     # new XY and YZ strings
     XY = merge_strings(X, Y)
