@@ -90,18 +90,25 @@ def condense_db_graph(db_graph):
     repeat = True
     while repeat:
         repeat = False
+        print("enterring for loop")
         for parent in db_graph:
+            found_match = False
             X = parent
-            #print(X)
+            print("X:", X)
             if (len(db_graph[parent]) == 1):  # if only one child node is present
                 for child in db_graph[parent]:  # get the name & coverage of the child node
                     Y = child
+                    print("Y:", Y)
                     XY_cov = db_graph[parent][child]
-                    if (len(db_graph[child]) == 1):  # if the child has only one child node (grandchild)
+                    if child not in db_graph:  # don't search for grandchildren keys if there aren't any grandchildren
+                        pass
+                    elif (len(db_graph[child]) == 1):  # if the child has only one child node (grandchild)
                         for grandchild in db_graph[child]:
                             Z = grandchild
+                            print("Z:", Z)
                             YZ_cov = db_graph[child][grandchild]
                             collapse_node(db_graph, X, Y, Z, XY_cov, YZ_cov)  # collapse the linear region
+                            print("collapsed node")
                             found_match = True
                             repeat = True # loop through entire graph again since we changed its size
                     #if found_match:
@@ -135,12 +142,18 @@ def collapse_node(db_graph, X, Y, Z, XY_cov, YZ_cov):
             #print("db_graph[key]:", db_graph[key])
             
     # store the children of node Z
-    temp = db_graph[Z]
+    if Z in db_graph:
+        temp = db_graph[Z]
+    else:
+        temp = Counter({})  # set to empty counter if Z has no children (end of graph)
     
     # delete nodes X, Y, and Z
-    del db_graph[X]
-    del db_graph[Y]
-    del db_graph[Z]
+    if X in db_graph:
+        del db_graph[X]
+    if Y in db_graph:
+        del db_graph[Y]
+    if Z in db_graph:
+        del db_graph[Z]
     
     # create node XY that points to YZ with coverage of new_cov
     db_graph[XY] = Counter({YZ: new_cov})
