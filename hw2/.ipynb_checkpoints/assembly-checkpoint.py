@@ -103,26 +103,70 @@ def build_edges(db_graph):
 
 def condense_edges(db_graph, db_edges):
     """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge. """
-    for X in db_graph:
-        found_match = False
-        for Y in db_graph[X]:
-            [XY_edge, XY_cov] = db_edges[X][Y]
-            if Y not in db_graph:
-                pass
-            elif (len(db_graph[Y]) == 1):
-                for Z in db_graph[Y]:
-                    [YZ_edge, YZ_cov] = db_edges[Y][Z]
-                    collapse_node(db_graph, db_edges, X, Y, Z)
+    found_match = False
+    repeat = True
+    while repeat:
+        print("starting over")
+        repeat = False
+        for X in db_graph:
+            print("X:", X)
+            found_match = False
+            for Y in db_graph[X]:
+                print("Y:", Y)
+                print("db_graph[X][Y]", db_graph[X][Y])
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                if Y not in db_graph:
+                    pass
+                elif (len(db_graph[Y]) == 1):
+                    for Z in db_graph[Y]:
+                        print("Z:", Z)
+                        [YZ_edge, YZ_cov] = db_edges[Y][Z]
+                        collapse_node(db_graph, db_edges, X, Y, Z)
+                        print("collapsed node")
+                        found_match = True
+                        repeat = True # loop through entire graph again since we changed its size
+                        break
+            if found_match:
+                break
+        #if found_match:
+        #    break
+        #break
 
 
-def collapse_node(db_graph, db_edges, X, Y, Z)
+def collapse_node(db_graph, db_edges, X, Y, Z):
     """ Given a linear region of the graph where X --XY--> Y --YZ--> Z we collapse the Y node to get X --XYZ--> Z. """
+    print("db_edges[X]", db_edges[X])
+    print("db_graph[X]", db_graph[X])
+    
     # find strings and coverages for original edges
     [XY_edge, XY_cov] = db_edges[X][Y]
     [YZ_edge, YZ_cov] = db_edges[Y][Z]
 
     XYZ_edge = merge_strings(XY_edge, YZ_edge)
     XYZ_cov = (XY_cov*len(XY_edge) + YZ_cov*len(YZ_edge)) / (len(XY_edge) + len(YZ_edge))
+    
+    # find edge leading out of X that points to Y
+    new_children = Counter()
+    for child in db_graph[X]:
+        if child != Y:
+            new_children.update(Counter({child: db_graph[X][child]}))  # add children that aren't Y
+    
+    # add Z to new_children
+    new_children.update(Counter({Z: XYZ_cov}))
+    
+    # have X point to new_children
+    db_graph[X] = new_children
+    
+    # delete all traces of Y from the graph
+    del db_edges[X][Y]
+    del db_edges[Y]
+    del db_graph[Y]
+    
+    # create db_edges[X][Z]
+    db_edges[X].update({Z: [XYZ_edge, XYZ_cov]})
+    
+    print("db_edges[X]", db_edges[X])
+    print("db_graph[X]", db_graph[X])
 
 
 def condense_db_graph(db_graph):
@@ -246,6 +290,9 @@ if __name__ == "__main__":
     reads = read_assembly_reads(reads_fn)
     db_graph = simple_de_bruijn(reads, 55)
     db_edges = build_edges(db_graph)
+    #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
+    #print("test case:", db_edges[test])
+    condense_edges(db_graph, db_edges)
     #condense_db_graph(db_graph)
     plot_db_graph(db_graph)
 
