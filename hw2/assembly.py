@@ -280,6 +280,17 @@ def plot_db_graph(db_graph):
     #A.draw('test.png')
 
 
+def plot_db_edges(db_edges):
+    """Plots the De Bruijn Graph into a dot file using pygraphviz."""
+    A = pgv.AGraph()
+    for X in db_edges:
+        for Y in db_edges[X]:
+            [XY_edge, XY_cov] = db_edges[X][Y]
+            A.add_edge(X, Y, label=("cov = " + str(XY_cov) + ", len = " + str(len(XY_edge))))
+    A.node_attr.update(label=0, fontsize=0)
+    A.write("test.dot")  # use "dot -Tpng test.dot > test.png" to convert to png
+
+
 if __name__ == "__main__":
 
     #A = "ABCDE"
@@ -294,7 +305,7 @@ if __name__ == "__main__":
     #print("test case:", db_edges[test])
     condense_edges(db_graph, db_edges)
     #condense_db_graph(db_graph)
-    plot_db_graph(db_graph)
+    plot_db_edges(db_edges)
 
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
