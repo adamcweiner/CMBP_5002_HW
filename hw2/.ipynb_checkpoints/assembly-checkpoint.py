@@ -4,6 +4,7 @@ import sys
 import pygraphviz as pgv
 from collections import defaultdict, Counter
 
+
 def read_fasta(read_fn):
     f = open(read_fn, 'r')
     first_line = True
@@ -84,85 +85,73 @@ def simple_de_bruijn(sequence_reads, k):
     return de_bruijn_graph
 
 
-def condense_db_graph(db_graph):
-    """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge """
+def build_edges(db_graph):
+    """ Build a dict of dict of Counters where the counter is the edge and the coverage between the two nodes. For example {A: {B: [AB_edge, AB_coverage]}}. """
+    db_edges = defaultdict()
+    for A in db_graph:
+        i = 0
+        for B in db_graph[A]:
+            AB_edge = merge_strings(A, B)
+            AB_coverage = db_graph[A][B]
+            if i == 0:
+                db_edges[A] = {B: [AB_edge, AB_coverage]}
+            else:
+                db_edges[A].update({B: [AB_edge, AB_coverage]})
+            i += 1
+    return db_edges
+
+
+def condense_graph(db_graph, db_edges):
+    """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge. """
     found_match = False
     repeat = True
     while repeat:
         repeat = False
-        print("enterring for loop")
-        for parent in db_graph:
+        for X in db_graph:
             found_match = False
-            X = parent
-            print("X:", X)
-            if (len(db_graph[parent]) == 1):  # if only one child node is present
-                for child in db_graph[parent]:  # get the name & coverage of the child node
-                    Y = child
-                    print("Y:", Y)
-                    XY_cov = db_graph[parent][child]
-                    if child not in db_graph:  # don't search for grandchildren keys if there aren't any grandchildren
-                        pass
-                    elif (len(db_graph[child]) == 1):  # if the child has only one child node (grandchild)
-                        for grandchild in db_graph[child]:
-                            Z = grandchild
-                            print("Z:", Z)
-                            YZ_cov = db_graph[child][grandchild]
-                            collapse_node(db_graph, X, Y, Z, XY_cov, YZ_cov)  # collapse the linear region
-                            print("collapsed node")
-                            found_match = True
-                            repeat = True # loop through entire graph again since we changed its size
-                    #if found_match:
-                    #    break
+            for Y in db_graph[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                if Y not in db_graph:
+                    pass
+                elif (len(db_graph[Y]) == 1):
+                    for Z in db_graph[Y]:
+                        [YZ_edge, YZ_cov] = db_edges[Y][Z]
+                        collapse_node(db_graph, db_edges, X, Y, Z)
+                        found_match = True
+                        repeat = True # loop through entire graph again since we changed its size
+                        break
             if found_match:
                 break
 
-    return
 
+def collapse_node(db_graph, db_edges, X, Y, Z):
+    """ Given a linear region of the graph where X --XY--> Y --YZ--> Z we collapse the Y node to get X --XYZ--> Z. """
+    # find strings and coverages for original edges
+    [XY_edge, XY_cov] = db_edges[X][Y]
+    [YZ_edge, YZ_cov] = db_edges[Y][Z]
 
-def collapse_node(db_graph, X, Y, Z, XY_cov, YZ_cov):
-    """ Given a linear region of the graph where X --> Y --> Z we collapse the Y node to get XY --> YZ. """
-    # new XY and YZ strings
-    XY = merge_strings(X, Y)
-    YZ = merge_strings(Y, Z)
-    #print("XY:", XY)
-
-    # use weighted avg to find new coverage
-    new_cov = (XY_cov*len(XY) + YZ_cov*len(YZ)) / (len(XY) + len(YZ))
-
-    # change all values of X in the dict to be XY
-    for key in db_graph:
-        if X in db_graph[key]:
-            #print("key:", key)
-            #print("db_graph[key]:", db_graph[key])
-            for entry in db_graph[key]:
-                if entry == X:
-                    db_graph[key][XY] = db_graph[key][X]  # add new XY with same counter value
-                    #print("db_graph[key][XY]:", db_graph[key][XY])
-                    del db_graph[key][X]  # delete pointer of key (X's parent) to X
-            #print("db_graph[key]:", db_graph[key])
-            
-    # store the children of node Z
-    if Z in db_graph:
-        temp = db_graph[Z]
-    else:
-        temp = Counter({})  # set to empty counter if Z has no children (end of graph)
+    XYZ_edge = merge_strings(XY_edge, YZ_edge)
+    XYZ_cov = (XY_cov*len(XY_edge) + YZ_cov*len(YZ_edge)) / (len(XY_edge) + len(YZ_edge))
     
-    # delete nodes X, Y, and Z
-    if X in db_graph:
-        del db_graph[X]
-    if Y in db_graph:
-        del db_graph[Y]
-    if Z in db_graph:
-        del db_graph[Z]
+    # find edge leading out of X that points to Y
+    new_children = Counter()
+    for child in db_graph[X]:
+        if child != Y:
+            new_children.update(Counter({child: db_graph[X][child]}))  # add children that aren't Y
     
-    # create node XY that points to YZ with coverage of new_cov
-    db_graph[XY] = Counter({YZ: new_cov})
-    #print("db_graph[XY]:", db_graph[XY])
+    # add Z to new_children
+    new_children.update(Counter({Z: XYZ_cov}))
     
-    # have YZ node point to temp
-    db_graph[YZ] = temp
-    #print("db_graph[YZ]:", db_graph[YZ])
-    return
+    # have X point to new_children
+    db_graph[X] = new_children
+    
+    # delete all traces of Y from the graph
+    del db_edges[X][Y]
+    del db_edges[Y]
+    del db_graph[Y]
+    
+    # create db_edges[X][Z]
+    db_edges[X].update({Z: [XYZ_edge, XYZ_cov]})
 
 
 def merge_strings(A, B):
@@ -172,27 +161,44 @@ def merge_strings(A, B):
     for i in range(max_overlap, 0, -1):
         A_end = A[-i:]  # get last i characters of A
         B_beg = B[:i]  # get first i characters of B
-        #print("A_end:", A_end)
-        #print("B_beg:", B_beg)
         if A_end == B_beg:
             A_beg = A[:(len(A)-i)]  # get first len(A)-i characters of A
             B_end = B[-(len(B)-i):]  # get last len(B)-i characters of B
-            #print("A_beg:", A_beg)
-            #print("B_end:", B_end)
             AB = A_beg + A_end + B_end  # collapse the region of overlap
             break
     return AB
 
 
-def plot_db_graph(db_graph):
-    """ Plots the De Bruijn Graph into a dot file using pygraphviz. """
+def plot_db_graph(db_edges, output_file, min_cov=0, min_len=0):
+    """ Plots the De Bruijn Graph into a dot file using pygraphviz. Can specify miminal coverage and edge length for graph simplification. """
     A = pgv.AGraph()
-    for key in db_graph:
-        for cntr in db_graph[key]:
-            A.add_edge(key, cntr, label=db_graph[key][cntr])
+    for X in db_edges:
+        for Y in db_edges[X]:
+            [XY_edge, XY_cov] = db_edges[X][Y]
+            if (len(XY_edge) >= min_len and XY_cov >= min_cov):
+                A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
     A.node_attr.update(label=0, fontsize=0)
-    A.write("test.dot")  # use "dot -Tpng test.dot > test.png" to convert to png
-    #A.draw('test.png')
+    A.write(output_file)
+
+    
+def plot_db_tip_removal(db_edges, output_file):
+    A = pgv.AGraph()
+    for X in db_edges:
+        if len(db_edges[X]) > 1:  # use branch with highest coverage if there's a fork in the graph
+            max_edge = ""
+            max_cov = 0
+            for Y in db_edges[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                if XY_cov > max_cov:
+                    max_edge = XY_edge
+                    max_cov = XY_cov
+            A.add_edge(X, max_edge, label=("cov = " + str(round(max_cov, 2)) + ", len = " + str(len(max_edge))))
+        else:  # plot edge normally if there isn't a fork in the graph
+            for Y in db_edges[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
+    A.node_attr.update(label=0, fontsize=0)
+    A.write(output_file)
 
 
 if __name__ == "__main__":
@@ -204,8 +210,13 @@ if __name__ == "__main__":
     reads_fn = "s_6.first1000.fastq"
     reads = read_assembly_reads(reads_fn)
     db_graph = simple_de_bruijn(reads, 55)
-    condense_db_graph(db_graph)
-    plot_db_graph(db_graph)
+    db_edges = build_edges(db_graph)
+    #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
+    #print("test case:", db_edges[test])
+    condense_graph(db_graph, db_edges)
+    plot_db_graph(db_edges, "normal_db.dot")  # use "dot -Tpng normal_db.dot > normal_db.png" to convert to png
+    plot_db_tip_removal(db_edges, "tip_removal.dot")  # use "dot -Tpng tip_removal.dot > tip_removal.png" to convert to png
+    plot_db_graph(db_edges, "high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng high_quality.dot > high_quality.png" to convert to png
 
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
