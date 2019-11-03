@@ -161,27 +161,44 @@ def merge_strings(A, B):
     for i in range(max_overlap, 0, -1):
         A_end = A[-i:]  # get last i characters of A
         B_beg = B[:i]  # get first i characters of B
-        #print("A_end:", A_end)
-        #print("B_beg:", B_beg)
         if A_end == B_beg:
             A_beg = A[:(len(A)-i)]  # get first len(A)-i characters of A
             B_end = B[-(len(B)-i):]  # get last len(B)-i characters of B
-            #print("A_beg:", A_beg)
-            #print("B_end:", B_end)
             AB = A_beg + A_end + B_end  # collapse the region of overlap
             break
     return AB
 
 
-def plot_db_graph(db_edges):
-    """Plots the De Bruijn Graph into a dot file using pygraphviz."""
+def plot_db_graph(db_edges, output_file, min_cov=0, min_len=0):
+    """ Plots the De Bruijn Graph into a dot file using pygraphviz. Can specify miminal coverage and edge length for graph simplification. """
     A = pgv.AGraph()
     for X in db_edges:
         for Y in db_edges[X]:
             [XY_edge, XY_cov] = db_edges[X][Y]
-            A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
+            if (len(XY_edge) >= min_len and XY_cov >= min_cov):
+                A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
     A.node_attr.update(label=0, fontsize=0)
-    A.write("test.dot")  # use "dot -Tpng test.dot > test.png" to convert to png
+    A.write(output_file)  # use "dot -Tpng test.dot > test.png" to convert to png
+
+    
+def plot_db_tip_removal(db_edges):
+    A = pgv.AGraph()
+    for X in db_edges:
+        if len(db_edges[X]) > 1:  # use branch with highest coverage if there's a fork in the graph
+            max_edge = ""
+            max_cov = 0
+            for Y in db_edges[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                if XY_cov > max_cov:
+                    max_edge = XY_edge
+                    max_cov = XY_cov
+            A.add_edge(X, max_edge, label=("cov = " + str(round(max_cov, 2)) + ", len = " + str(len(max_edge))))
+        else:  # plot edge normally if there isn't a fork in the graph
+            for Y in db_edges[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
+    A.node_attr.update(label=0, fontsize=0)
+    A.write("tip_removal.dot")  # use "dot -Tpng tip_removal.dot > tip_removal.png" to convert to png
 
 
 if __name__ == "__main__":
@@ -197,7 +214,8 @@ if __name__ == "__main__":
     #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
     #print("test case:", db_edges[test])
     condense_graph(db_graph, db_edges)
-    plot_db_graph(db_edges)
+    plot_db_graph(db_edges, "normal_db.dot")
+    plot_db_tip_removal(db_edges)
 
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
