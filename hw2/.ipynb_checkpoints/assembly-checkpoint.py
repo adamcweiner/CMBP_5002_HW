@@ -4,6 +4,7 @@ import sys
 import pygraphviz as pgv
 from collections import defaultdict, Counter
 
+
 def read_fasta(read_fn):
     f = open(read_fn, 'r')
     first_line = True
@@ -97,32 +98,25 @@ def build_edges(db_graph):
             else:
                 db_edges[A].update({B: [AB_edge, AB_coverage]})
             i += 1
-        #print("db_edges[A]:", db_edges[A])
     return db_edges
 
 
-def condense_edges(db_graph, db_edges):
+def condense_graph(db_graph, db_edges):
     """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge. """
     found_match = False
     repeat = True
     while repeat:
-        #print("starting over")
         repeat = False
         for X in db_graph:
-            #print("X:", X)
             found_match = False
             for Y in db_graph[X]:
-                #print("Y:", Y)
-                #print("db_graph[X][Y]", db_graph[X][Y])
                 [XY_edge, XY_cov] = db_edges[X][Y]
                 if Y not in db_graph:
                     pass
                 elif (len(db_graph[Y]) == 1):
                     for Z in db_graph[Y]:
-                        #print("Z:", Z)
                         [YZ_edge, YZ_cov] = db_edges[Y][Z]
                         collapse_node(db_graph, db_edges, X, Y, Z)
-                        #print("collapsed node")
                         found_match = True
                         repeat = True # loop through entire graph again since we changed its size
                         break
@@ -179,7 +173,7 @@ def merge_strings(A, B):
     return AB
 
 
-def plot_db_edges(db_edges):
+def plot_db_graph(db_edges):
     """Plots the De Bruijn Graph into a dot file using pygraphviz."""
     A = pgv.AGraph()
     for X in db_edges:
@@ -202,8 +196,8 @@ if __name__ == "__main__":
     db_edges = build_edges(db_graph)
     #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
     #print("test case:", db_edges[test])
-    condense_edges(db_graph, db_edges)
-    plot_db_edges(db_edges)
+    condense_graph(db_graph, db_edges)
+    plot_db_graph(db_edges)
 
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
