@@ -178,10 +178,10 @@ def plot_db_graph(db_edges, output_file, min_cov=0, min_len=0):
             if (len(XY_edge) >= min_len and XY_cov >= min_cov):
                 A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
     A.node_attr.update(label=0, fontsize=0)
-    A.write(output_file)  # use "dot -Tpng test.dot > test.png" to convert to png
+    A.write(output_file)
 
     
-def plot_db_tip_removal(db_edges):
+def plot_db_tip_removal(db_edges, output_file):
     A = pgv.AGraph()
     for X in db_edges:
         if len(db_edges[X]) > 1:  # use branch with highest coverage if there's a fork in the graph
@@ -198,7 +198,7 @@ def plot_db_tip_removal(db_edges):
                 [XY_edge, XY_cov] = db_edges[X][Y]
                 A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
     A.node_attr.update(label=0, fontsize=0)
-    A.write("tip_removal.dot")  # use "dot -Tpng tip_removal.dot > tip_removal.png" to convert to png
+    A.write(output_file)
 
 
 if __name__ == "__main__":
@@ -214,8 +214,9 @@ if __name__ == "__main__":
     #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
     #print("test case:", db_edges[test])
     condense_graph(db_graph, db_edges)
-    plot_db_graph(db_edges, "normal_db.dot")
-    plot_db_tip_removal(db_edges)
+    plot_db_graph(db_edges, "normal_db.dot")  # use "dot -Tpng normal_db.dot > normal_db.png" to convert to png
+    plot_db_tip_removal(db_edges, "tip_removal.dot")  # use "dot -Tpng tip_removal.dot > tip_removal.png" to convert to png
+    plot_db_graph(db_edges, "high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng high_quality.dot > high_quality.png" to convert to png
 
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
