@@ -106,38 +106,32 @@ def condense_edges(db_graph, db_edges):
     found_match = False
     repeat = True
     while repeat:
-        print("starting over")
+        #print("starting over")
         repeat = False
         for X in db_graph:
-            print("X:", X)
+            #print("X:", X)
             found_match = False
             for Y in db_graph[X]:
-                print("Y:", Y)
-                print("db_graph[X][Y]", db_graph[X][Y])
+                #print("Y:", Y)
+                #print("db_graph[X][Y]", db_graph[X][Y])
                 [XY_edge, XY_cov] = db_edges[X][Y]
                 if Y not in db_graph:
                     pass
                 elif (len(db_graph[Y]) == 1):
                     for Z in db_graph[Y]:
-                        print("Z:", Z)
+                        #print("Z:", Z)
                         [YZ_edge, YZ_cov] = db_edges[Y][Z]
                         collapse_node(db_graph, db_edges, X, Y, Z)
-                        print("collapsed node")
+                        #print("collapsed node")
                         found_match = True
                         repeat = True # loop through entire graph again since we changed its size
                         break
             if found_match:
                 break
-        #if found_match:
-        #    break
-        #break
 
 
 def collapse_node(db_graph, db_edges, X, Y, Z):
     """ Given a linear region of the graph where X --XY--> Y --YZ--> Z we collapse the Y node to get X --XYZ--> Z. """
-    print("db_edges[X]", db_edges[X])
-    print("db_graph[X]", db_graph[X])
-    
     # find strings and coverages for original edges
     [XY_edge, XY_cov] = db_edges[X][Y]
     [YZ_edge, YZ_cov] = db_edges[Y][Z]
@@ -164,90 +158,6 @@ def collapse_node(db_graph, db_edges, X, Y, Z):
     
     # create db_edges[X][Z]
     db_edges[X].update({Z: [XYZ_edge, XYZ_cov]})
-    
-    print("db_edges[X]", db_edges[X])
-    print("db_graph[X]", db_graph[X])
-
-
-def condense_db_graph(db_graph):
-    """ Condenses de Bruijn graph by collapsing nodes that have one in-edge and one out-edge """
-    found_match = False
-    repeat = True
-    while repeat:
-        repeat = False
-        print("enterring for loop")
-        for parent in db_graph:
-            found_match = False
-            X = parent
-            print("X:", X)
-            if (len(db_graph[parent]) == 1):  # if only one child node is present
-                for child in db_graph[parent]:  # get the name & coverage of the child node
-                    Y = child
-                    print("Y:", Y)
-                    XY_cov = db_graph[parent][child]
-                    if child not in db_graph:  # don't search for grandchildren keys if there aren't any grandchildren
-                        pass
-                    elif (len(db_graph[child]) == 1):  # if the child has only one child node (grandchild)
-                        for grandchild in db_graph[child]:
-                            Z = grandchild
-                            print("Z:", Z)
-                            YZ_cov = db_graph[child][grandchild]
-                            collapse_node_og(db_graph, X, Y, Z, XY_cov, YZ_cov)  # collapse the linear region
-                            print("collapsed node")
-                            found_match = True
-                            repeat = True # loop through entire graph again since we changed its size
-                    #if found_match:
-                    #    break
-            if found_match:
-                break
-
-    return
-
-
-def collapse_node_og(db_graph, X, Y, Z, XY_cov, YZ_cov):
-    """ Given a linear region of the graph where X --> Y --> Z we collapse the Y node to get XY --> YZ. """
-    # new XY and YZ strings
-    XY = merge_strings(X, Y)
-    YZ = merge_strings(Y, Z)
-    #print("XY:", XY)
-
-    # use weighted avg to find new coverage
-    new_cov = (XY_cov*len(XY) + YZ_cov*len(YZ)) / (len(XY) + len(YZ))
-
-    # change all values of X in the dict to be XY
-    for key in db_graph:
-        if X in db_graph[key]:
-            #print("key:", key)
-            #print("db_graph[key]:", db_graph[key])
-            for entry in db_graph[key]:
-                if entry == X:
-                    db_graph[key][XY] = db_graph[key][X]  # add new XY with same counter value
-                    #print("db_graph[key][XY]:", db_graph[key][XY])
-                    del db_graph[key][X]  # delete pointer of key (X's parent) to X
-            #print("db_graph[key]:", db_graph[key])
-            
-    # store the children of node Z
-    if Z in db_graph:
-        temp = db_graph[Z]
-    else:
-        temp = Counter({})  # set to empty counter if Z has no children (end of graph)
-    
-    # delete nodes X, Y, and Z
-    if X in db_graph:
-        del db_graph[X]
-    if Y in db_graph:
-        del db_graph[Y]
-    if Z in db_graph:
-        del db_graph[Z]
-    
-    # create node XY that points to YZ with coverage of new_cov
-    db_graph[XY] = Counter({YZ: new_cov})
-    #print("db_graph[XY]:", db_graph[XY])
-    
-    # have YZ node point to temp
-    db_graph[YZ] = temp
-    #print("db_graph[YZ]:", db_graph[YZ])
-    return
 
 
 def merge_strings(A, B):
@@ -269,24 +179,13 @@ def merge_strings(A, B):
     return AB
 
 
-def plot_db_graph(db_graph):
-    """ Plots the De Bruijn Graph into a dot file using pygraphviz. """
-    A = pgv.AGraph()
-    for key in db_graph:
-        for cntr in db_graph[key]:
-            A.add_edge(key, cntr, label=("cov = " + str(round(db_graph[key][cntr], 3)) + ", len = " + str(len(merge_strings(key, cntr)))))
-    A.node_attr.update(label=0, fontsize=0)
-    A.write("test.dot")  # use "dot -Tpng test.dot > test.png" to convert to png
-    #A.draw('test.png')
-
-
 def plot_db_edges(db_edges):
     """Plots the De Bruijn Graph into a dot file using pygraphviz."""
     A = pgv.AGraph()
     for X in db_edges:
         for Y in db_edges[X]:
             [XY_edge, XY_cov] = db_edges[X][Y]
-            A.add_edge(X, Y, label=("cov = " + str(XY_cov) + ", len = " + str(len(XY_edge))))
+            A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
     A.node_attr.update(label=0, fontsize=0)
     A.write("test.dot")  # use "dot -Tpng test.dot > test.png" to convert to png
 
@@ -304,7 +203,6 @@ if __name__ == "__main__":
     #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
     #print("test case:", db_edges[test])
     condense_edges(db_graph, db_edges)
-    #condense_db_graph(db_graph)
     plot_db_edges(db_edges)
 
     #output_fn = "fastq_reads.txt"
