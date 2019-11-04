@@ -183,6 +183,7 @@ def plot_db_graph(db_edges, output_file, min_cov=0, min_len=0):
 
     
 def plot_db_tip_removal(db_edges, output_file, tip_cov=0, tip_len=0):
+    """ Plots de Bruijn graph into a dot file using pygraphvis. Any tip that falls below the specified tip_cov or tip_len will not be included in the graph. """
     A = pgv.AGraph()
     for X in db_edges:
         if len(db_edges[X]) > 1:  # use if there's a fork in the graph the edge must pass tip thresholds
@@ -202,7 +203,7 @@ def fasta_edges(db_edges, output_fn, min_cov=0, min_len=0):
     """ Writes a fasta format file of all the edges in the graph that meet the specified coverage & length criteria. """
     with open(output_fn, 'w') as output_file:
         output_file.write('>' + reads_fn + '\n')
-        output_file.write('>EDGES\n')
+        output_file.write('>EDGES,COVERAGE\n')
         for X in db_edges:
             for Y in db_edges[X]:
                 [XY_edge, XY_cov] = db_edges[X][Y]
@@ -215,14 +216,14 @@ def fasta_edges_tip_removal(db_edges, output_fn, tip_cov=0, tip_len=0):
     """ Same as fasta_edges() except this function removes tips from the graph. """
     with open(output_fn, 'w') as output_file:
         output_file.write('>' + reads_fn + '\n')
-        output_file.write('>EDGES\n')
+        output_file.write('>EDGES,COVERAGE\n')
         for X in db_edges:
-                if len(db_edges[X]) > 1:  # use branch with highest coverage if there's a fork in the graph
+                if len(db_edges[X]) > 1:  # check tip requirements when there's a branch in the graph
                     for Y in db_edges[X]:
                         [XY_edge, XY_cov] = db_edges[X][Y]
                         if (len(XY_edge) >= tip_len and XY_cov >= tip_cov):
                             output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
-                else:
+                else:  # just plot the edge when there's no branch
                     for Y in db_edges[X]:
                         [XY_edge, XY_cov] = db_edges[X][Y]
                         output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
@@ -242,16 +243,6 @@ if __name__ == "__main__":
     fasta_edges_tip_removal(db_edges, "s6_tip_removal.edges.fasta", tip_cov=10, tip_len=100)
     plot_db_graph(db_edges, "s6_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng s6_high_quality.dot > s6_high_quality.png" to convert to png
     fasta_edges(db_edges, "s6_high_quality.edges.fasta", min_cov=10, min_len=100)
-    
-    # output a fasta-format file of the graph's edges
-    #output_fn = "s_6.edges.fasta"
-    #with open(output_fn, 'w') as output_file:
-    #    output_file.write('>' + reads_fn + '\n')
-    #    output_file.write('>EDGES\n')
-    #    for X in db_edges:
-    #        for Y in db_edges[X]:
-    #            [XY_edge, XY_cov] = db_edges[X][Y]
-    #            output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
 
 
     # perform analysis for MG1655-K12.fasta file
