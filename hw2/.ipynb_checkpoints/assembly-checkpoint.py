@@ -255,10 +255,13 @@ if __name__ == "__main__":
     condense_graph(db_graph, db_edges)
     print("condensed graph... plotting normal graph")
     plot_db_graph(db_edges, "K12_normal_db.dot")  # use "dot -Tpng K12_normal_db.dot > K12_normal_db.png" to convert to png
+    fasta_edges(db_edges, "K12_normal.edges.fasta")
     print("plotted normal graph... removing tips")
     plot_db_tip_removal(db_edges, "K12_tip_removal.dot")  # use "dot -Tpng K12_tip_removal.dot > K12_tip_removal.png" to convert to png
+    fasta_edges_tip_removal(db_edges, "K12_tip_removal.edges.fasta", tip_cov=10, tip_len=100)
     print("plotted tipless graph... plotting high quality graph")
     plot_db_graph(db_edges, "K12_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng K12_high_quality.dot > K12_high_quality.png" to convert to png
+    fasta_edges(db_edges, "K12_high_quality.edges.fasta", min_cov=10, min_len=100)
     print("plotted high quality graph")
     
     #output_fn = "fastq_reads.txt"
