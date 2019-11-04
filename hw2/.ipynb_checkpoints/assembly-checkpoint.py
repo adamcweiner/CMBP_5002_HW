@@ -106,6 +106,7 @@ def condense_graph(db_graph, db_edges):
     found_match = False
     repeat = True
     while repeat:
+        print("size of db graph:", len(db_graph))
         repeat = False
         for X in db_graph:
             found_match = False
@@ -202,22 +203,32 @@ def plot_db_tip_removal(db_edges, output_file):
 
 
 if __name__ == "__main__":
-
-    #A = "ABCDE"
-    #B = "CDEF"
-    #print(merge_strings(A,B))
-    #reads_fn = "MG1655-K12.first1K.fasta"
+    # perform analysis for s_6.first1000 file
     reads_fn = "s_6.first1000.fastq"
     reads = read_assembly_reads(reads_fn)
     db_graph = simple_de_bruijn(reads, 55)
     db_edges = build_edges(db_graph)
-    #test = "CCACCATTACCACCACCATCACCATTACCACAGGTAACGGTGCGGGCTGACGCGT"
-    #print("test case:", db_edges[test])
     condense_graph(db_graph, db_edges)
-    plot_db_graph(db_edges, "normal_db.dot")  # use "dot -Tpng normal_db.dot > normal_db.png" to convert to png
-    plot_db_tip_removal(db_edges, "tip_removal.dot")  # use "dot -Tpng tip_removal.dot > tip_removal.png" to convert to png
-    plot_db_graph(db_edges, "high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng high_quality.dot > high_quality.png" to convert to png
+    plot_db_graph(db_edges, "s6_normal_db.dot")  # use "dot -Tpng s6_normal_db.dot > s6_normal_db.png" to convert to png
+    plot_db_tip_removal(db_edges, "s6_tip_removal.dot")  # use "dot -Tpng s6_tip_removal.dot > s6_tip_removal.png" to convert to png
+    plot_db_graph(db_edges, "s6_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng s6_high_quality.dot > s6_high_quality.png" to convert to png
 
+    # perform analysis for MG1655-K12.fasta file
+    reads_fn = "MG1655-K12.fasta"
+    reads = read_assembly_reads(reads_fn)
+    db_graph = simple_de_bruijn(reads, 55)
+    print("built graph... building edges")
+    db_edges = build_edges(db_graph)
+    print("built edges... condensing graph")
+    condense_graph(db_graph, db_edges)
+    print("condensed graph... plotting normal graph")
+    plot_db_graph(db_edges, "K12_normal_db.dot")  # use "dot -Tpng K12_normal_db.dot > K12_normal_db.png" to convert to png
+    print("plotted normal graph... removing tips")
+    plot_db_tip_removal(db_edges, "K12_tip_removal.dot")  # use "dot -Tpng K12_tip_removal.dot > K12_tip_removal.png" to convert to png
+    print("plotted tipless graph... plotting high quality graph")
+    plot_db_graph(db_edges, "K12_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng K12_high_quality.dot > K12_high_quality.png" to convert to png
+    print("plotted high quality graph")
+    
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
     #    output_file.write('>' + reads_fn + '\n')
