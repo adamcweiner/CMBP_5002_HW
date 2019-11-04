@@ -187,13 +187,15 @@ def plot_db_tip_removal(db_edges, output_file):
     for X in db_edges:
         if len(db_edges[X]) > 1:  # use branch with highest coverage if there's a fork in the graph
             max_edge = ""
+            max_Y = ""
             max_cov = 0
             for Y in db_edges[X]:
                 [XY_edge, XY_cov] = db_edges[X][Y]
                 if XY_cov > max_cov:
                     max_edge = XY_edge
+                    max_Y = Y
                     max_cov = XY_cov
-            A.add_edge(X, max_edge, label=("cov = " + str(round(max_cov, 2)) + ", len = " + str(len(max_edge))))
+            A.add_edge(X, max_Y, label=("cov = " + str(round(max_cov, 2)) + ", len = " + str(len(max_edge))))
         else:  # plot edge normally if there isn't a fork in the graph
             for Y in db_edges[X]:
                 [XY_edge, XY_cov] = db_edges[X][Y]
@@ -212,6 +214,17 @@ if __name__ == "__main__":
     plot_db_graph(db_edges, "s6_normal_db.dot")  # use "dot -Tpng s6_normal_db.dot > s6_normal_db.png" to convert to png
     plot_db_tip_removal(db_edges, "s6_tip_removal.dot")  # use "dot -Tpng s6_tip_removal.dot > s6_tip_removal.png" to convert to png
     plot_db_graph(db_edges, "s6_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng s6_high_quality.dot > s6_high_quality.png" to convert to png
+    
+    # output a fasta-format file of the graph's edges
+    output_fn = "s_6.edges.fasta"
+    with open(output_fn, 'w') as output_file:
+        output_file.write('>' + reads_fn + '\n')
+        output_file.write('>EDGES\n')
+        for X in db_edges:
+            for Y in db_edges[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
+
 
     # perform analysis for MG1655-K12.fasta file
     reads_fn = "MG1655-K12.fasta"
