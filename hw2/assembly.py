@@ -65,20 +65,16 @@ def simple_de_bruijn(sequence_reads, k):
     :return: A DeBruijn graph where the keys are k-mers and the values are the set
                 of k-mers that
     """
+    read_count = 0
     de_bruijn_counter = defaultdict(Counter)
-    # You may also want to check the in-degree and out-degree of each node
-    # to help you find the beginnning and end of the sequence.
+    # loop through each read
     for read in sequence_reads:
-        # Cut the read into k-mers
         kmers = [read[i: i + k] for i in range(len(read) - k)]
+        # loop through each kmer in this read's spectrum
         for i in range(len(kmers) - 1):
             pvs_kmer = kmers[i]
-            next_kmer = kmers[i + 1]
-            de_bruijn_counter[pvs_kmer].update([next_kmer])
-
-    # This line removes the nodes from the DeBruijn Graph that we have not seen enough.
-    #de_bruijn_counter = {key: {val for val in de_bruijn_counter[key] if de_bruijn_counter[key][val] > 1}
-    #                   for key in de_bruijn_counter}
+            next_kmer = kmers[i + 1]      
+            de_bruijn_counter[pvs_kmer].update([next_kmer])  # connect the kmers
 
     # This line removes the empty nodes from the DeBruijn graph
     de_bruijn_graph = {key: de_bruijn_counter[key] for key in de_bruijn_counter if de_bruijn_counter[key]}
@@ -106,7 +102,7 @@ def condense_graph(db_graph, db_edges):
     found_match = False
     repeat = True
     while repeat:
-        print("size of db graph:", len(db_graph))
+        #print("size of db graph:", len(db_graph))
         repeat = False
         for X in db_graph:
             found_match = False
@@ -182,19 +178,16 @@ def plot_db_graph(db_edges, output_file, min_cov=0, min_len=0):
     A.write(output_file)
 
     
-def plot_db_tip_removal(db_edges, output_file):
+def plot_db_tip_removal(db_edges, output_file, tip_cov=0, tip_len=0):
+    """ Plots de Bruijn graph into a dot file using pygraphvis. Any tip that falls below the specified tip_cov or tip_len will not be included in the graph. """
     A = pgv.AGraph()
     for X in db_edges:
-        if len(db_edges[X]) > 1:  # use branch with highest coverage if there's a fork in the graph
-            max_edge = ""
-            max_cov = 0
+        if len(db_edges[X]) > 1:  # use if there's a fork in the graph the edge must pass tip thresholds
             for Y in db_edges[X]:
                 [XY_edge, XY_cov] = db_edges[X][Y]
-                if XY_cov > max_cov:
-                    max_edge = XY_edge
-                    max_cov = XY_cov
-            A.add_edge(X, max_edge, label=("cov = " + str(round(max_cov, 2)) + ", len = " + str(len(max_edge))))
-        else:  # plot edge normally if there isn't a fork in the graph
+                if (len(XY_edge) >= tip_len and XY_cov >= tip_cov):
+                        A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
+        else:  # plot edges normally if there isn't a fork in the graph
             for Y in db_edges[X]:
                 [XY_edge, XY_cov] = db_edges[X][Y]
                 A.add_edge(X, Y, label=("cov = " + str(round(XY_cov, 2)) + ", len = " + str(len(XY_edge))))
@@ -202,35 +195,52 @@ def plot_db_tip_removal(db_edges, output_file):
     A.write(output_file)
 
 
+def fasta_edges(db_edges, output_fn, min_cov=0, min_len=0):
+    """ Writes a fasta format file of all the edges in the graph that meet the specified coverage & length criteria. """
+    with open(output_fn, 'w') as output_file:
+        output_file.write('>' + reads_fn + '\n')
+        output_file.write('>EDGES,COVERAGE\n')
+        for X in db_edges:
+            for Y in db_edges[X]:
+                [XY_edge, XY_cov] = db_edges[X][Y]
+                if (len(XY_edge) >= min_len and XY_cov >= min_cov):
+                    output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
+    return
+
+
+def fasta_edges_tip_removal(db_edges, output_fn, tip_cov=0, tip_len=0):
+    """ Same as fasta_edges() except this function removes tips from the graph. """
+    with open(output_fn, 'w') as output_file:
+        output_file.write('>' + reads_fn + '\n')
+        output_file.write('>EDGES,COVERAGE\n')
+        for X in db_edges:
+                if len(db_edges[X]) > 1:  # check tip requirements when there's a branch in the graph
+                    for Y in db_edges[X]:
+                        [XY_edge, XY_cov] = db_edges[X][Y]
+                        if (len(XY_edge) >= tip_len and XY_cov >= tip_cov):
+                            output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
+                else:  # just plot the edge when there's no branch
+                    for Y in db_edges[X]:
+                        [XY_edge, XY_cov] = db_edges[X][Y]
+                        output_file.write(str(XY_edge) + ',' + str(round(XY_cov, 2)) + '\n')
+    return
+
+
 if __name__ == "__main__":
     # perform analysis for s_6.first1000 file
     reads_fn = "s_6.first1000.fastq"
     reads = read_assembly_reads(reads_fn)
+    print("making db_graph")
     db_graph = simple_de_bruijn(reads, 55)
+    print("done with db_graph... making db_edges")
     db_edges = build_edges(db_graph)
+    print("made db_edges... condensing graph")
     condense_graph(db_graph, db_edges)
+    print("condensed graph... making plots")
     plot_db_graph(db_edges, "s6_normal_db.dot")  # use "dot -Tpng s6_normal_db.dot > s6_normal_db.png" to convert to png
-    plot_db_tip_removal(db_edges, "s6_tip_removal.dot")  # use "dot -Tpng s6_tip_removal.dot > s6_tip_removal.png" to convert to png
+    fasta_edges(db_edges, "s6_normal.edges.fasta")
+    plot_db_tip_removal(db_edges, "s6_tip_removal.dot", tip_cov=10, tip_len=100)  # use "dot -Tpng s6_tip_removal.dot > s6_tip_removal.png" to convert to png
+    fasta_edges_tip_removal(db_edges, "s6_tip_removal.edges.fasta", tip_cov=10, tip_len=100)
     plot_db_graph(db_edges, "s6_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng s6_high_quality.dot > s6_high_quality.png" to convert to png
+    fasta_edges(db_edges, "s6_high_quality.edges.fasta", min_cov=10, min_len=100)
 
-    # perform analysis for MG1655-K12.fasta file
-    reads_fn = "MG1655-K12.fasta"
-    reads = read_assembly_reads(reads_fn)
-    db_graph = simple_de_bruijn(reads, 55)
-    print("built graph... building edges")
-    db_edges = build_edges(db_graph)
-    print("built edges... condensing graph")
-    condense_graph(db_graph, db_edges)
-    print("condensed graph... plotting normal graph")
-    plot_db_graph(db_edges, "K12_normal_db.dot")  # use "dot -Tpng K12_normal_db.dot > K12_normal_db.png" to convert to png
-    print("plotted normal graph... removing tips")
-    plot_db_tip_removal(db_edges, "K12_tip_removal.dot")  # use "dot -Tpng K12_tip_removal.dot > K12_tip_removal.png" to convert to png
-    print("plotted tipless graph... plotting high quality graph")
-    plot_db_graph(db_edges, "K12_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng K12_high_quality.dot > K12_high_quality.png" to convert to png
-    print("plotted high quality graph")
-    
-    #output_fn = "fastq_reads.txt"
-    #with open(output_fn, 'w') as output_file:
-    #    output_file.write('>' + reads_fn + '\n')
-    #    output_file.write('>READS\n')
-    #    output_file.write('\n'.join(reads))
