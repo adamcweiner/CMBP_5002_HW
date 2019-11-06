@@ -65,17 +65,25 @@ def simple_de_bruijn(sequence_reads, k):
     :return: A DeBruijn graph where the keys are k-mers and the values are the set
                 of k-mers that
     """
+    read_count = 0
     de_bruijn_counter = defaultdict(Counter)
     # You may also want to check the in-degree and out-degree of each node
     # to help you find the beginnning and end of the sequence.
     for read in sequence_reads:
+        #read_count += 1
+        #if read_count % 100 == 0:
+        #    print(read_count)
         # Cut the read into k-mers
         kmers = [read[i: i + k] for i in range(len(read) - k)]
         for i in range(len(kmers) - 1):
             pvs_kmer = kmers[i]
-            next_kmer = kmers[i + 1]
+            next_kmer = kmers[i + 1]      
             de_bruijn_counter[pvs_kmer].update([next_kmer])
 
+    #for A in de_bruijn_counter:
+    #    for B in de_bruijn counter:
+    #        if A[:(k-1)] == B[1:]:
+    #            de_bruijn_counter[A].update([B])
     # This line removes the nodes from the DeBruijn Graph that we have not seen enough.
     #de_bruijn_counter = {key: {val for val in de_bruijn_counter[key] if de_bruijn_counter[key][val] > 1}
     #                   for key in de_bruijn_counter}
@@ -106,7 +114,7 @@ def condense_graph(db_graph, db_edges):
     found_match = False
     repeat = True
     while repeat:
-        print("size of db graph:", len(db_graph))
+        #print("size of db graph:", len(db_graph))
         repeat = False
         for X in db_graph:
             found_match = False
@@ -234,9 +242,13 @@ if __name__ == "__main__":
     # perform analysis for s_6.first1000 file
     reads_fn = "s_6.first1000.fastq"
     reads = read_assembly_reads(reads_fn)
+    print("making db_graph")
     db_graph = simple_de_bruijn(reads, 55)
+    print("done with db_graph... making db_edges")
     db_edges = build_edges(db_graph)
+    print("made db_edges... condensing graph")
     condense_graph(db_graph, db_edges)
+    print("condensed graph... making plots")
     plot_db_graph(db_edges, "s6_normal_db.dot")  # use "dot -Tpng s6_normal_db.dot > s6_normal_db.png" to convert to png
     fasta_edges(db_edges, "s6_normal.edges.fasta")
     plot_db_tip_removal(db_edges, "s6_tip_removal.dot", tip_cov=10, tip_len=100)  # use "dot -Tpng s6_tip_removal.dot > s6_tip_removal.png" to convert to png
@@ -246,7 +258,7 @@ if __name__ == "__main__":
 
 
     # perform analysis for MG1655-K12.fasta file
-    reads_fn = "MG1655-K12.fasta"
+    """reads_fn = "MG1655-K12.fasta"
     reads = read_assembly_reads(reads_fn)
     db_graph = simple_de_bruijn(reads, 55)
     print("built graph... building edges")
@@ -262,7 +274,7 @@ if __name__ == "__main__":
     print("plotted tipless graph... plotting high quality graph")
     plot_db_graph(db_edges, "K12_high_quality.dot", min_cov=10, min_len=100)  # use "dot -Tpng K12_high_quality.dot > K12_high_quality.png" to convert to png
     fasta_edges(db_edges, "K12_high_quality.edges.fasta", min_cov=10, min_len=100)
-    print("plotted high quality graph")
+    print("plotted high quality graph")"""
     
     #output_fn = "fastq_reads.txt"
     #with open(output_fn, 'w') as output_file:
